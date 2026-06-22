@@ -65,6 +65,15 @@ a { color: inherit; }
   font-family: Georgia, serif;
 }
 
+.header-actions, .sync-control { display: flex; align-items: center; gap: 10px; }
+.sync-status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .72rem; font-weight: 700; }
+.sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #98a39c; }
+.sync-status.online { color: var(--green-dark); }
+.sync-status.online .sync-dot { background: #24a56a; box-shadow: 0 0 0 3px rgba(36, 165, 106, .13); }
+.sync-status.syncing .sync-dot { background: #e49a2f; animation: pulse 1s infinite alternate; }
+.user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+@keyframes pulse { to { opacity: .35; } }
+
 main { max-width: 1380px; margin: auto; padding: 0 28px 72px; }
 
 .hero { padding: 64px 0 38px; }
@@ -227,6 +236,10 @@ dialog p { color: var(--muted); overflow-wrap: anywhere; }
   .brand { font-size: .9rem; }
   .brand-mark { width: 30px; height: 30px; }
   .export-button { min-height: 38px; padding: 0 11px; font-size: .75rem; }
+  .header-actions { gap: 6px; }
+  .sync-status { display: none; }
+  .auth-button { min-height: 38px; padding: 0 10px; font-size: .72rem; }
+  .export-button span { display: none; }
   .hero h1 { font-size: 2.45rem; }
   .hero > p:last-child { font-size: .92rem; }
   .stat { padding: 14px 15px; }

@@ -1,3 +1,14 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import {
+  getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged,
+  signInWithPopup, signInWithRedirect, signOut
+} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import {
+  collection, deleteDoc, doc, getDocs, getFirestore, onSnapshot,
+  setDoc, writeBatch
+} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import { firebaseConfig } from "./firebase-config.js";
+
 const STORAGE_KEY = "app-list-manager-data-v1";
 const STATUSES = ["未着手", "制作中", "デバッグ中", "制作済み", "改善予定", "保留", "ボツ"];
 const GENRES = ["業務改善", "PDF・文書", "AI活用", "SNS発信", "家計・生活", "趣味", "学習", "実験", "その他"];
@@ -44,9 +55,135 @@ function loadApps() {
 }
 
 let apps = loadApps();
+let auth = null;
+let db = null;
+let currentUser = null;
+let stopCloudListener = null;
+
+function firebaseIsConfigured() {
+  return firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith("YOUR_")
+    && firebaseConfig.projectId && !firebaseConfig.projectId.startsWith("YOUR_");
+}
 
 function saveApps() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(apps));
+}
+
+async function saveApp(app) {
+  saveApps();
+  if (!currentUser || !db) return;
+  setSyncState("syncing", "同期中…");
+  try {
+    await setDoc(doc(db, "users", currentUser.uid, "apps", app.id), app);
+    setSyncState("online", "同期済み");
+  } catch (error) {
+    console.error("クラウド保存に失敗しました。", error);
+    setSyncState("error", "同期エラー");
+    showToast("クラウド保存に失敗しました。端末内には保存されています");
+  }
+}
+
+async function deleteCloudApp(id) {
+  saveApps();
+  if (!currentUser || !db) return;
+  setSyncState("syncing", "同期中…");
+  try {
+    await deleteDoc(doc(db, "users", currentUser.uid, "apps", id));
+    setSyncState("online", "同期済み");
+  } catch (error) {
+    console.error("クラウド削除に失敗しました。", error);
+    setSyncState("error", "同期エラー");
+    showToast("クラウドから削除できませんでした");
+  }
+}
+
+function setSyncState(state, label) {
+  const status = $("#syncStatus");
+  status.classList.remove("online", "syncing", "error");
+  if (state) status.classList.add(state);
+  $("#syncStatusText").textContent = label;
+}
+
+function updateAuthButton(user) {
+  const button = $("#authButton");
+  button.replaceChildren();
+  if (!user) {
+    button.textContent = firebaseIsConfigured() ? "Googleで同期" : "同期設定";
+    return;
+  }
+  if (user.photoURL) {
+    const image = document.createElement("img");
+    image.className = "user-avatar";
+    image.src = user.photoURL;
+    image.alt = "";
+    button.append(image);
+  }
+  button.append(document.createTextNode("ログアウト"));
+  button.title = user.email || "";
+}
+
+async function beginCloudSync(user) {
+  if (stopCloudListener) stopCloudListener();
+  setSyncState("syncing", "初回同期中…");
+  const appCollection = collection(db, "users", user.uid, "apps");
+  const remoteSnapshot = await getDocs(appCollection);
+
+  if (remoteSnapshot.empty && apps.length) {
+    const batch = writeBatch(db);
+    apps.forEach((app) => batch.set(doc(appCollection, app.id), app));
+    await batch.commit();
+    showToast("端末内のデータをクラウドへ移行しました");
+  } else if (!remoteSnapshot.empty) {
+    apps = remoteSnapshot.docs.map((item) => item.data());
+    saveApps();
+    render();
+  }
+
+  stopCloudListener = onSnapshot(appCollection, (snapshot) => {
+    apps = snapshot.docs.map((item) => item.data());
+    saveApps();
+    render();
+    setSyncState("online", "同期済み");
+  }, (error) => {
+    console.error("リアルタイム同期に失敗しました。", error);
+    setSyncState("error", "同期エラー");
+    showToast("同期できません。Firebaseの設定とルールを確認してください");
+  });
+}
+
+async function initializeCloud() {
+  updateAuthButton(null);
+  if (!firebaseIsConfigured()) {
+    setSyncState("", "端末内に保存");
+    return;
+  }
+  try {
+    const firebaseApp = initializeApp(firebaseConfig);
+    auth = getAuth(firebaseApp);
+    db = getFirestore(firebaseApp);
+    await getRedirectResult(auth);
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user;
+      updateAuthButton(user);
+      if (!user) {
+        if (stopCloudListener) stopCloudListener();
+        stopCloudListener = null;
+        setSyncState("", "端末内に保存");
+        render();
+        return;
+      }
+      try {
+        await beginCloudSync(user);
+      } catch (error) {
+        console.error("同期の開始に失敗しました。", error);
+        setSyncState("error", "同期エラー");
+        showToast("同期を開始できません。Firebaseの設定を確認してください");
+      }
+    });
+  } catch (error) {
+    console.error("Firebaseの初期化に失敗しました。", error);
+    setSyncState("error", "設定エラー");
+  }
 }
 
 function fillSelect(select, items, firstLabel = null) {
@@ -168,7 +305,7 @@ function resetForm() {
   $("#cancelEditButton").classList.add("hidden");
 }
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!form.reportValidity()) return;
   const data = new FormData(form);
@@ -189,7 +326,7 @@ form.addEventListener("submit", (event) => {
   };
   if (existing) apps = apps.map((item) => item.id === editId ? app : item);
   else apps.unshift(app);
-  saveApps();
+  await saveApp(app);
   resetForm();
   render();
   showToast(existing ? "アプリ情報を更新しました" : "アプリを登録しました");
@@ -218,12 +355,13 @@ appList.addEventListener("click", (event) => {
 });
 
 $("#cancelEditButton").addEventListener("click", resetForm);
-$("#confirmDeleteButton").addEventListener("click", () => {
+$("#confirmDeleteButton").addEventListener("click", async () => {
   if (!pendingDeleteId) return;
   apps = apps.filter((app) => app.id !== pendingDeleteId);
   if ($("#editId").value === pendingDeleteId) resetForm();
+  const deletedId = pendingDeleteId;
   pendingDeleteId = null;
-  saveApps();
+  await deleteCloudApp(deletedId);
   render();
   showToast("アプリを削除しました");
 });
@@ -258,4 +396,33 @@ $("#exportButton").addEventListener("click", () => {
   showToast("CSVを出力しました");
 });
 
+$("#authButton").addEventListener("click", async () => {
+  if (!firebaseIsConfigured()) {
+    showToast("firebase-config.js にFirebase設定を入力してください");
+    return;
+  }
+  try {
+    if (currentUser) {
+      await signOut(auth);
+      showToast("ログアウトしました");
+      return;
+    }
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      if (["auth/popup-blocked", "auth/cancelled-popup-request"].includes(error.code)) {
+        await signInWithRedirect(auth, provider);
+      } else {
+        throw error;
+      }
+    }
+  } catch (error) {
+    console.error("Googleログインに失敗しました。", error);
+    showToast("Googleログインに失敗しました");
+  }
+});
+
 render();
+initializeCloud();
