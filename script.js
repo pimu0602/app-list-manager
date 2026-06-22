@@ -245,7 +245,7 @@ function csvCell(value) {
 
 $("#exportButton").addEventListener("click", () => {
   if (!apps.length) return showToast("出力できるアプリがありません");
-  const headers = ["アプリ名", "どんなものか", "備考", "制作状況", "ジャンル", "優先度", "公開URL", "GitHub URL", "作成日", "更新日"];
+  const headers = ["アプリ名", "概要", "備考", "制作状況", "ジャンル", "優先度", "公開URL", "GitHub URL", "作成日", "更新日"];
   const keys = ["name", "description", "note", "status", "genre", "priority", "publicUrl", "githubUrl", "createdAt", "updatedAt"];
   const rows = [headers.map(csvCell).join(","), ...apps.map((app) => keys.map((key) => csvCell(app[key])).join(","))];
   const blob = new Blob(["\uFEFF" + rows.join("\r\n")], { type: "text/csv;charset=utf-8" });
