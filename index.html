@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="制作したアプリ、制作中のアプリ、作りたいアプリをまとめて管理するローカルWebアプリ">
+  <title>制作アプリリスト</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#top" aria-label="制作アプリリスト ホーム">
+        <span class="brand-mark" aria-hidden="true">A</span>
+        <span>制作アプリリスト</span>
+      </a>
+      <button class="button button-secondary export-button" id="exportButton" type="button">
+        <span aria-hidden="true">⇩</span> CSV出力
+      </button>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="pageTitle">
+      <p class="eyebrow">APP PORTFOLIO MANAGER</p>
+      <h1 id="pageTitle">作ったものを、<br class="mobile-break">次の資産へ。</h1>
+      <p>作ったもの、作りたいもの、改善したいものをまとめる場所。</p>
+    </section>
+
+    <section class="stats" id="stats" aria-label="制作状況の集計"></section>
+
+    <div class="workspace">
+      <aside class="panel form-panel" aria-labelledby="formTitle">
+        <div class="panel-heading">
+          <div>
+            <p class="section-label">PROJECT DETAILS</p>
+            <h2 id="formTitle">アプリを登録</h2>
+          </div>
+          <button class="text-button hidden" id="cancelEditButton" type="button">編集をやめる</button>
+        </div>
+
+        <form id="appForm">
+          <input id="editId" type="hidden">
+          <div class="field">
+            <label for="name">アプリ名 <span class="required">必須</span></label>
+            <input id="name" name="name" type="text" placeholder="例：紙本PDF化アプリ" maxlength="80" required>
+          </div>
+          <div class="field">
+            <label for="description">どんなものか <span class="required">必須</span></label>
+            <textarea id="description" name="description" rows="4" placeholder="アプリの概要を入力" maxlength="500" required></textarea>
+          </div>
+          <div class="field">
+            <label for="note">備考</label>
+            <textarea id="note" name="note" rows="4" placeholder="改善点、追加したい機能、投稿ネタなど" maxlength="1000"></textarea>
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="status">制作状況</label>
+              <select id="status" name="status"></select>
+            </div>
+            <div class="field">
+              <label for="genre">ジャンル</label>
+              <select id="genre" name="genre"></select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="priority">優先度</label>
+            <div class="priority-options" id="priorityOptions">
+              <label><input type="radio" name="priority" value="高"><span>高</span></label>
+              <label><input type="radio" name="priority" value="中" checked><span>中</span></label>
+              <label><input type="radio" name="priority" value="低"><span>低</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <label for="publicUrl">公開URL</label>
+            <input id="publicUrl" name="publicUrl" type="url" inputmode="url" placeholder="https://example.com">
+          </div>
+          <div class="field">
+            <label for="githubUrl">GitHub URL</label>
+            <input id="githubUrl" name="githubUrl" type="url" inputmode="url" placeholder="https://github.com/user/repository">
+          </div>
+          <button class="button button-primary submit-button" id="submitButton" type="submit">アプリを登録する</button>
+        </form>
+      </aside>
+
+      <section class="list-area" aria-labelledby="listTitle">
+        <div class="list-heading">
+          <div>
+            <p class="section-label">MY PROJECTS</p>
+            <h2 id="listTitle">アプリ一覧 <span id="resultCount">0件</span></h2>
+          </div>
+        </div>
+
+        <div class="filter-panel" aria-label="検索と絞り込み">
+          <div class="search-wrap">
+            <span aria-hidden="true">⌕</span>
+            <label class="visually-hidden" for="keyword">キーワード検索</label>
+            <input id="keyword" type="search" placeholder="アプリ名・概要・備考を検索">
+          </div>
+          <div class="filters">
+            <label><span>状況</span><select id="statusFilter"></select></label>
+            <label><span>ジャンル</span><select id="genreFilter"></select></label>
+            <label><span>優先度</span><select id="priorityFilter">
+              <option value="">すべて</option><option>高</option><option>中</option><option>低</option>
+            </select></label>
+            <label><span>並び順</span><select id="sortOrder">
+              <option value="updated-desc">更新日が新しい順</option>
+              <option value="created-desc">作成日が新しい順</option>
+              <option value="priority">優先度順</option>
+              <option value="status">制作状況順</option>
+              <option value="name">アプリ名順</option>
+            </select></label>
+          </div>
+          <button class="text-button reset-filter" id="resetFilterButton" type="button">絞り込みをリセット</button>
+        </div>
+
+        <div class="card-list" id="appList" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="deleteDialog">
+    <form method="dialog">
+      <span class="dialog-icon" aria-hidden="true">!</span>
+      <h2>このアプリを削除しますか？</h2>
+      <p id="deleteTargetName"></p>
+      <div class="dialog-actions">
+        <button class="button button-secondary" value="cancel">キャンセル</button>
+        <button class="button button-danger" id="confirmDeleteButton" value="confirm">削除する</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="script.js"></script>
+</body>
+</html>
