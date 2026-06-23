@@ -216,13 +216,12 @@ dialog p { color: var(--muted); overflow-wrap: anywhere; }
 
 @media (min-width: 781px) {
   .workspace { align-items: stretch; }
-  .form-panel, .list-area {
+  .form-panel {
     max-height: calc(100vh - 92px);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
   .form-panel { padding-right: 20px; }
-  .list-area { padding-right: 6px; }
 }
 
 @media (max-width: 1080px) {
