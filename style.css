@@ -217,9 +217,11 @@ dialog p { color: var(--muted); overflow-wrap: anywhere; }
 @media (min-width: 781px) {
   .workspace { align-items: stretch; }
   .form-panel {
-    max-height: calc(100vh - 92px);
+    height: calc(100vh - 92px);
+    min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
   .form-panel { padding-right: 20px; }
 }
