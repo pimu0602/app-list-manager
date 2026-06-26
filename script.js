@@ -29,6 +29,7 @@ const samples = [
 const $ = (selector) => document.querySelector(selector);
 const form = $("#appForm");
 const appList = $("#appList");
+const formPanel = $(".form-panel");
 const deleteDialog = $("#deleteDialog");
 let pendingDeleteId = null;
 let toastTimer;
@@ -63,6 +64,10 @@ let stopCloudListener = null;
 function firebaseIsConfigured() {
   return firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith("YOUR_")
     && firebaseConfig.projectId && !firebaseConfig.projectId.startsWith("YOUR_");
+}
+
+function isDesktopLayout() {
+  return window.matchMedia("(min-width: 781px)").matches;
 }
 
 function saveApps() {
@@ -220,6 +225,13 @@ function showToast(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove("show"), 2300);
 }
+
+formPanel.addEventListener("wheel", (event) => {
+  if (!isDesktopLayout()) return;
+  if (formPanel.scrollHeight <= formPanel.clientHeight) return;
+  event.preventDefault();
+  formPanel.scrollTop += event.deltaY;
+}, { passive: false });
 
 function renderStats() {
   const completed = apps.filter((app) => app.status === "制作済み").length;
