@@ -133,16 +133,29 @@ async function beginCloudSync(user) {
   const appCollection = collection(db, "users", user.uid, "apps");
   const remoteSnapshot = await getDocs(appCollection);
 
-  if (remoteSnapshot.empty && apps.length) {
+  // クラウドとローカルをIDでマージする。以前はクラウドが空でない場合に
+  // ローカルを丸ごと上書きしていて、未同期のローカル登録が黙って消えていた。
+  const remoteApps = remoteSnapshot.docs.map((item) => item.data());
+  const remoteById = new Map(remoteApps.map((app) => [app.id, app]));
+  const toUpload = apps.filter((app) => {
+    const remote = remoteById.get(app.id);
+    return !remote || String(app.updatedAt || "") > String(remote.updatedAt || "");
+  });
+
+  if (toUpload.length) {
     const batch = writeBatch(db);
-    apps.forEach((app) => batch.set(doc(appCollection, app.id), app));
+    toUpload.forEach((app) => batch.set(doc(appCollection, app.id), app));
     await batch.commit();
-    showToast("端末内のデータをクラウドへ移行しました");
-  } else if (!remoteSnapshot.empty) {
-    apps = remoteSnapshot.docs.map((item) => item.data());
-    saveApps();
-    render();
+    showToast(remoteSnapshot.empty
+      ? "端末内のデータをクラウドへ移行しました"
+      : `端末内の${toUpload.length}件をクラウドへ反映しました`);
   }
+
+  const merged = new Map(remoteById);
+  toUpload.forEach((app) => merged.set(app.id, app));
+  apps = [...merged.values()];
+  saveApps();
+  render();
 
   stopCloudListener = onSnapshot(appCollection, (snapshot) => {
     apps = snapshot.docs.map((item) => item.data());
